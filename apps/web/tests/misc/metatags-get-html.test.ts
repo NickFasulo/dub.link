@@ -163,4 +163,49 @@ describe("getHtml response size limit", () => {
 
     await expect(getHtml(URL)).resolves.toBe("<title>café 🔗</title>");
   });
+
+  // Shift_JIS bytes for "日本語のタイトル".
+  const SJIS_TITLE = new Uint8Array([
+    0x93, 0xfa, 0x96, 0x7b, 0x8c, 0xea, 0x82, 0xcc, 0x83, 0x5e, 0x83, 0x43,
+    0x83, 0x67, 0x83, 0x8b,
+  ]);
+  const sjisPage = (headPrefix: Uint8Array) => {
+    const parts = [
+      headPrefix,
+      new TextEncoder().encode("<head><title>"),
+      SJIS_TITLE,
+      new TextEncoder().encode("</title></head>"),
+    ];
+    const bytes = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
+    let offset = 0;
+    for (const part of parts) {
+      bytes.set(part, offset);
+      offset += part.length;
+    }
+    return bytes;
+  };
+
+  it("decodes the head with the charset from the Content-Type header", async () => {
+    vi.mocked(safeFetch).mockResolvedValue(
+      new Response(sjisPage(new Uint8Array()), {
+        headers: { "content-type": "text/html; charset=shift_jis" },
+      }),
+    );
+
+    await expect(getHtml(URL)).resolves.toBe(
+      "<head><title>日本語のタイトル</title></head>",
+    );
+  });
+
+  it("sniffs a <meta charset> when Content-Type has none", async () => {
+    vi.mocked(safeFetch).mockResolvedValue(
+      new Response(
+        sjisPage(new TextEncoder().encode('<meta charset="shift_jis">')),
+      ),
+    );
+
+    await expect(getHtml(URL)).resolves.toBe(
+      '<meta charset="shift_jis"><head><title>日本語のタイトル</title></head>',
+    );
+  });
 });

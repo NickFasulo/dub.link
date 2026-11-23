@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { getRelativeUrl } from "../../app/api/links/metatags/utils";
+import {
+  getHeadChildNodes,
+  getRelativeUrl,
+} from "../../app/api/links/metatags/utils";
 
 const PAGE = "https://example.com/blog/post";
 
@@ -18,6 +21,29 @@ describe("getRelativeUrl (metatags image resolution)", () => {
 
   it("resolves relative image URLs against the page origin", () => {
     expect(getRelativeUrl(PAGE, "/og.jpg")).toBe("https://example.com/og.jpg");
+  });
+
+  it("resolves page-relative image URLs against the page path", () => {
+    expect(getRelativeUrl(PAGE, "cover.png")).toBe(
+      "https://example.com/blog/cover.png",
+    );
+    expect(getRelativeUrl(PAGE, "images/og.jpg")).toBe(
+      "https://example.com/blog/images/og.jpg",
+    );
+  });
+
+  it("resolves relative image URLs against a <base> URL", () => {
+    // When a page sets <base href>, callers pass the resolved base URL here.
+    expect(getRelativeUrl("https://cdn.example.com/assets/", "og.jpg")).toBe(
+      "https://cdn.example.com/assets/og.jpg",
+    );
+  });
+
+  it("extracts a <base href> for image resolution", () => {
+    const { baseHref } = getHeadChildNodes(
+      '<html><head><base href="https://cdn.example.com/assets/"></head>',
+    );
+    expect(baseHref).toBe("https://cdn.example.com/assets/");
   });
 
   it("keeps inline base64 images", () => {

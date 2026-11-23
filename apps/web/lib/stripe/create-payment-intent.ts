@@ -46,7 +46,8 @@ export const createPaymentIntent = async ({
         amount,
         customer: stripeId,
         ...(invoiceId ? { transfer_group: invoiceId } : {}),
-        payment_method_types: ["card", "link"],
+        // No payment_method_types: Stripe removed the param in API 2026-09-30,
+        // and an explicit payment_method makes the restrictive list unnecessary.
         payment_method: paymentMethod.id,
         currency: "usd",
         confirmation_method: "automatic",
